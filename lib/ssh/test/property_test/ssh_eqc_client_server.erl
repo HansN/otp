@@ -36,6 +36,10 @@
 -define(TESTINGTIME(Prop), eqc:testing_time(30,Prop)).
   
 
+%% Limit the testing time on CI server... this needs to be improved in % from total budget.
+-define(TESTINGTIME(Prop), eqc:testing_time(30,Prop)).
+  
+
 -include_lib("eqc/include/eqc.hrl").
 -include_lib("eqc/include/eqc_statem.hrl").
 -eqc_group_commands(true).
