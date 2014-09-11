@@ -111,7 +111,6 @@ prop_seq(CT_Config) ->
 
 
 do_prop_seq(DataDir) ->
-    setup_rsa(DataDir),
     ?FORALL(Cmds,commands(?MODULE),
 	    begin
 		{H,Sf,Result} = run_commands(?MODULE,Cmds,[{data_dir,DataDir}]),
@@ -130,7 +129,6 @@ prop_parallel(CT_Config) ->
     do_prop_parallel(full_path(?SSH_DIR, CT_Config)).
 
 do_prop_parallel(DataDir) ->
-    setup_rsa(DataDir),
     ?FORALL(Cmds,parallel_commands(?MODULE),
 	    begin
 		{H,Sf,Result} = run_parallel_commands(?MODULE,Cmds,[{data_dir,DataDir}]),
@@ -165,7 +163,8 @@ initial_state() ->
 %%% called when using commands/2
 initial_state(DataDir) ->
     application:stop(ssh),
-    ssh:start().
+    ssh:start(),
+    setup_rsa(DataDir).
 
 %%%----------------
 weight(S, ssh_send) -> 5*length([C || C<-S#state.channels, has_subsyst(C)]);
