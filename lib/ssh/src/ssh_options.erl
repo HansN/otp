@@ -31,7 +31,10 @@
          delete_key/5,
          handle_options/2,
          keep_user_options/2,
-         keep_set_options/2
+         keep_set_options/2,
+
+         initial_default_algorithms/2,
+         check_preferred_algorithms/1
         ]).
 
 -export_type([private_options/0
@@ -912,6 +915,11 @@ valid_hash(S) -> valid_hash(S, proplists:get_value(hashs,crypto:supports())).
 valid_hash(S, Ss) when is_atom(S) -> lists:member(S, ?SHAs) andalso lists:member(S, Ss);
 valid_hash(L, Ss) when is_list(L) -> lists:all(fun(S) -> valid_hash(S,Ss) end, L);
 valid_hash(X,  _) -> error_in_check(X, "Expect atom or list in fingerprint spec").
+
+%%%----------------------------------------------------------------
+initial_default_algorithms(DefList, ModList) ->
+    {true, L0} = check_modify_algorithms(ModList),
+    rm_non_supported(false, eval_ops(DefList,L0)).
 
 %%%----------------------------------------------------------------
 check_modify_algorithms(M) when is_list(M) ->
