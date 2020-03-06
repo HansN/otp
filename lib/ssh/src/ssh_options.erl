@@ -166,18 +166,38 @@ handle_options(Role, PropList0) ->
 
 handle_options(Role, PropList0, Opts0) when is_map(Opts0),
                                             is_list(PropList0) ->
-    PropList1 = proplists:unfold(PropList0), 
+    PropList1 = proplists:unfold(PropList0),
     try
         OptionDefinitions = default(Role),
+        ConfigOpts = application:get_env(ssh, options, []),
         InitialMap =
             maps:fold(
-              fun(K, #{default:=V}, M) -> M#{K=>V};
-                 (_,_,M) -> M
+              fun(K, #{default:=Vd}, M) ->
+                      %% Now set as the default value:
+                      %%   1: from erl command list: erl -ssh opt val
+                      %%   2: from config file:  {options, [..., {opt,val}, ....]}
+                      %%   3: from the hard-coded option values in default/1
+                      %% The value in the option list will be handled later in save/3 later
+                      case config_val(K, ConfigOpts, proplists:get_value(K,PropList1,Vd)) of
+                          Vd ->
+                              %% The default value
+                              M#{K => Vd};
+                          V1 ->
+                              %% A value set in config or options
+%%                              io:format("Add ~p to~n~p~n~n",[{K,V1}, maps:get(user_options,M)]),
+                              M#{K =>
+                                     V1,
+                                 user_options =>
+                                     [{K,V1} | maps:get(user_options,M)]}
+                      end;
+
+                 (_,_,M) ->
+                      M
               end,
-              Opts0#{user_options => 
-                         maps:get(user_options,Opts0) ++ PropList1
-                   },
+              Opts0#{user_options => maps:get(user_options,Opts0)},
               OptionDefinitions),
+
+
         %% Enter the user's values into the map; unknown keys are
         %% treated as socket options
         final_preferred_algorithms(
@@ -185,16 +205,40 @@ handle_options(Role, PropList0, Opts0) when is_map(Opts0),
                               save(KV, OptionDefinitions, Vals)
                       end, InitialMap, PropList1))
     catch
-        error:{eoptions, KV, undefined} -> 
-            {error, {eoptions,KV}};
-
-        error:{eoptions, KV, Txt} when is_list(Txt) -> 
-            {error, {eoptions,{KV,lists:flatten(Txt)}}};
-
-        error:{eoptions, KV, Extra} ->
-            {error, {eoptions,{KV,Extra}}}
+        error:{EO, KV, Reason} when EO == eoptions ; EO == eerl_env ->
+            if
+                Reason == undefined ->
+                    {error, {EO,KV}};
+                is_list(Reason) ->
+                    {error, {EO,{KV,lists:flatten(Reason)}}};
+                true ->
+                    {error, {EO,{KV,Reason}}}
+            end
     end.
 
+
+config_val(Key, ConfigOpts, ValueDefault) ->
+    case lists:member(Key, [preferred_algorithm,
+                            modify_algorithms]) of
+        true ->
+            %% Already handled
+            ValueDefault;
+        false ->
+            %% Must distinguish between
+            %%   - if the value undefined is set, or
+            %%   - if no value is set:
+            case application:get_env(ssh, Key) of
+                {ok,Value} ->
+                    Value;
+                undefined ->
+                    case lists:keysearch(Key, 1, ConfigOpts) of
+                        {value,{Key,Value}} ->
+                            Value;
+                        false ->
+                            ValueDefault
+                    end
+            end
+    end.
 
 check_fun(Key, Defs) ->
     #{chk := Fun} = maps:get(Key, Defs),
