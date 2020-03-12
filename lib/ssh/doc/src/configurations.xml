@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2020</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Configuration in SSH</title>
+    <prepared></prepared>
+    <docno></docno>
+    <approved></approved>
+    <date></date>
+    <rev></rev>
+    <file>configurations.xml</file>
+  </header>
+
+  <section>
+    <marker id="introduction"/>
+    <title>Introduction</title>
+    <p>The OTP SSH app can be configurated by a large amount of <i>Options</i>. This chapter will not go into
+    details of what each of the options does. It will however describe and define different ways by which they
+    could be entered.
+    </p>
+  </section>
+
+  <section>
+    <title>Options configuration</title>
+    <p>The most familiar way is probably by writting options in a call to for example
+    <seealso marker="ssh#daemon-3">ssh:daemon/3</seealso> or
+    <seealso marker="ssh#connect-3">ssh:connect/3</seealso> or
+    any of their variants
+    </p>
+    <p>There are two classes of options:</p>
+    <list>
+      <item><seealso marker="ssh#type-daemon_options">daemon_options()</seealso> for servers started
+      by <seealso marker="ssh#daemon-3">ssh:daemon</seealso>.
+      </item>
+      <item><seealso marker="ssh#type-client_options">client_options()</seealso> for clients started
+      with
+      <seealso marker="ssh#connect-3">ssh:connect</seealso>,
+      <seealso marker="ssh#shell-2">ssh:shell</seealso> or some of the
+      <seealso marker="ssh_sftp#start_channel-2">ssh_sftp:start_channel</seealso> variants.
+      </item>
+    </list>
+    <p>The <seealso marker="ssh#type-daemon_options">daemon_options()</seealso> and
+    the <seealso marker="ssh#type-client_options">client_options()</seealso> share some
+    <seealso marker="ssh#type-common_options">common_options()</seealso>.
+    </p>
+    <p>There are three main ways to set an option:
+    </p>
+    <list>
+      <item>In the <c>Options</c> parameter in the Erlang code as described above. Example:
+      <code>ssh:connect(22, [{user,"foo"}])</code>
+      </item>
+      <item>On the erl command line. Example:
+      <pre>erl -ssh user \"foo\"</pre>
+      </item>
+      <item>In a .config file. Example:
+      <pre>erl -config ex1</pre>
+      where <c>ex1.config</c> contains:
+      <code>[
+{ssh, [{user, "foo"}]}
+].
+</code>
+    <p>If the option is intended only for a server or for a client, it may be set in this way:
+    </p>
+    <code>[
+{ssh, [{server_options,[{user, "foo"}]},
+       {client_options,[{user, "bar"}]}
+].
+</code>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Precedens</title>
+    <p>So if an option is set in more than one way, what happens?</p>
+    <p>There is an ordering, which is (in ascending priority):
+    </p>
+    <list>
+      <item>0: Hard-coded default value</item>
+      <item>1: Separate env-options</item>
+      <item>2: Env-options in <c>server_options</c> or <c>client_options</c></item>
+      <item>3: Option in argument list to a function</item>
+    </list>
+    <p>If the same option is set at two different levels, the one at the highest level is used.
+    The only exception is the <seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+    common option.
+    </p>
+
+    <section>
+      <title>Algorithm configuration</title>
+      <p>There is a <seealso marker="configure_algos#introduction">separate chapter</seealso> about how
+      <seealso marker="ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso> and
+      <seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+      co-operate. How the different configurations levels affects them, is described here in this section.
+      </p>
+      <section>
+	<title>The ssh:start/0 function</title>
+	<p>If the application SSH is <i>not</i> <seealso marker="ssh#start-0">started</seealso>, the command
+	<seealso marker="ssh#default_algorithms-0">ssh:default_algorithms/0</seealso>
+	delvers the list of default (hardcoded) algorithms with respect to the support in the current cryptolib.
+	</p>
+	<p>If the application SSH <i>is</i>  <seealso marker="ssh#start-0">started</seealso>, the command
+	<seealso marker="ssh#default_algorithms-0">ssh:default_algorithms/0</seealso>
+	delvers the list of algorithms after application of level 0 and level 1 configurations. That is still with
+	respect of the current cryptolib support.
+	</p>
+      </section>
+
+      <section>
+	<title>Establishing a connection (ssh:connect et al) or starting a daemon (ssh:daemon)</title>
+	<p>Both when the client establish a connection with ssh:connect or other functions, or a
+	daemon is started with ssh:daemon, the option lists in the function calls are handled. For
+	the algorithm handling (but not other options), the levels 0 and 1 are already handled
+	when SSH was started so only level 2 and 3 are used.
+	</p>
+	<p>If a client is started (ssh:connect et al), the environment variable <c>client_options</c> is used.
+	Similaraly for a daemon the <c>server_options</c> variable is handled.
+	</p>
+	<p>If any
+	<seealso marker="ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso> is
+	present, the one with the highest level is used, that is, the <c>Option</c> list parameter has the highest
+	priority. Then the
+	<seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+	with the highest level <i>including level 1</i> is applied.
+	
+	</p>
+	
+	
+      </section>
+    </section>
+  </section>
+</chapter>
