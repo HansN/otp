@@ -96,7 +96,7 @@ default_algorithms() ->
                 case proplists:get_value(preferred_algorithms, Opts) of
                     undefined ->
                         [{K,default_algorithms1(K)} || K <- algo_classes()];
-                    {ok,Algs0} ->
+                    Algs0 ->
                         {true,Algs01} = ssh_options:check_preferred_algorithms(Algs0),
                         Algs01
                 end,
@@ -138,7 +138,12 @@ algo_two_spec_class(_) -> false.
 
 
 default_algorithms(Tag) ->
-    proplists:get_value(Tag, default_algorithms(), []).
+    case application:get_env(ssh, ?DEFAULT_ALGS) of
+        undefined ->
+            default_algorithms1(Tag);
+        Algs ->
+            proplists:get_value(Tag, Algs, [])
+    end.
     
 
 default_algorithms1(kex) ->
